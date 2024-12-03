@@ -3,60 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>File Upload Dashboard</title>
+    <title>Folder Upload Dashboard</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        #drop-area {
-            width: 100%;
-            height: 200px;
-            border: 2px dashed #ccc;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: #777;
-            margin-bottom: 20px;
-            cursor: pointer;
-        }
-        #drop-area.dragover {
-            border-color: #333;
-            color: #333;
-        }
-        #dashboard {
-            margin-top: 20px;
         }
     </style>
 </head>
 <body>
-    <h1>File Upload Dashboard</h1>
-    <div id="drop-area">Drag and drop your folder of .txt files here</div>
+    <h1>Folder Upload Dashboard</h1>
+    <p>Select a folder of .txt files: <input type="file" id="folderInput" webkitdirectory multiple></p>
     <div id="dashboard"></div>
 
     <script>
-        const dropArea = document.getElementById('drop-area');
+        const folderInput = document.getElementById('folderInput');
         const dashboard = document.getElementById('dashboard');
 
-        // Handle drag-and-drop events
-        dropArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropArea.classList.add('dragover');
-        });
-
-        dropArea.addEventListener('dragleave', () => {
-            dropArea.classList.remove('dragover');
-        });
-
-        dropArea.addEventListener('drop', async (e) => {
-            e.preventDefault();
-            dropArea.classList.remove('dragover');
-
-            // Collect dropped files
-            const files = e.dataTransfer.files;
-
-            // Prepare FormData for upload
+        // Helper function to send files to the server
+        async function uploadFiles(files) {
             const formData = new FormData();
             for (let file of files) {
                 if (file.name.endsWith('.txt')) {
@@ -64,7 +29,6 @@
                 }
             }
 
-            // Send files to the backend
             try {
                 const response = await fetch('http://127.0.0.1:5000/upload', {
                     method: 'POST',
@@ -74,56 +38,56 @@
                 if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
 
                 const data = await response.json();
-                renderChart(data); // Call function to render the chart
+                renderChart(data); // Visualize the data
             } catch (error) {
                 console.error('Error uploading files:', error);
             }
+        }
+
+        // Handle folder input
+        folderInput.addEventListener('change', (e) => {
+            const files = e.target.files;
+            uploadFiles(files); // Send the selected files
         });
 
-        // Render a bar chart with D3.js
+        // Render a sample chart using D3.js
         function renderChart(data) {
             dashboard.innerHTML = ''; // Clear previous charts
 
             const width = 600;
             const height = 400;
-            const margin = { top: 20, right: 30, bottom: 50, left: 40 };
-
-            // Example: Bar chart for anomalies
-            const anomalyCounts = d3.rollup(data, v => v.length, d => d.anomaly);
-
             const svg = d3.select('#dashboard')
                 .append('svg')
-                .attr('width', width + margin.left + margin.right)
-                .attr('height', height + margin.top + margin.bottom)
-                .append('g')
-                .attr('transform', `translate(${margin.left},${margin.top})`);
+                .attr('width', width)
+                .attr('height', height);
 
-            const x = d3.scaleBand()
+            // Example: Render bar chart for anomalies
+            const anomalyCounts = d3.rollup(data, v => v.length, d => d.anomaly);
+
+            const xScale = d3.scaleBand()
                 .domain([...anomalyCounts.keys()])
                 .range([0, width])
                 .padding(0.1);
 
-            const y = d3.scaleLinear()
+            const yScale = d3.scaleLinear()
                 .domain([0, d3.max(anomalyCounts.values())])
                 .range([height, 0]);
 
-            svg.selectAll('.bar')
+            svg.selectAll('rect')
                 .data([...anomalyCounts.entries()])
                 .enter()
                 .append('rect')
-                .attr('class', 'bar')
-                .attr('x', d => x(d[0]))
-                .attr('y', d => y(d[1]))
-                .attr('width', x.bandwidth())
-                .attr('height', d => height - y(d[1]))
+                .attr('x', d => xScale(d[0]))
+                .attr('y', d => yScale(d[1]))
+                .attr('width', xScale.bandwidth())
+                .attr('height', d => height - yScale(d[1]))
                 .attr('fill', 'steelblue');
 
             svg.append('g')
                 .attr('transform', `translate(0,${height})`)
-                .call(d3.axisBottom(x).tickFormat(d => d ? 'Anomaly' : 'Normal'));
+                .call(d3.axisBottom(xScale).tickFormat(d => d ? "Anomaly" : "Normal"));
 
-            svg.append('g')
-                .call(d3.axisLeft(y));
+            svg.append('g').call(d3.axisLeft(yScale));
         }
     </script>
 </body>
